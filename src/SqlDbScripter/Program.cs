@@ -21,18 +21,6 @@ namespace SqlDbScripter
             var db = srv.Databases[databaseName];
 
             var options = new ScriptOptions();
-            options.CustomStartSql = @"use master
-go
-if exists(select * from sys.databases where name = '_ExpTest')
-begin
-	alter database _ExpTest set offline with rollback immediate
-	alter database _ExpTest set online
-	drop database _ExpTest
-end
-create database _ExpTest
-go
-use _ExpTest
-";
             var generator = new ScriptGenerator();
             var output = Console.Out;
             if (outputFilePath != null)
