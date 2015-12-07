@@ -1,0 +1,1 @@
+﻿bin\debug\sqldbscripter.exe (localdb)\v11.0 UmbracoCodeGenDemo > test2.sql
