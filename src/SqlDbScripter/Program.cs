@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using CommandLine;
 using Microsoft.SqlServer.Management.Common;
 using Microsoft.SqlServer.Management.Smo;
 
@@ -7,27 +9,64 @@ namespace SqlDbScripter
 {
     class Program
     {
-        static void Main(string[] args)
+        static int Main(string[] args)
         {
-            if (args.Length < 2)
-            {
-                Console.WriteLine("Usage: sqldbscripter <servername> <databasename> <outputfile>");
-                return;
-            }
-            string serverName = args[0];// "(localdb)\\v11.0";
-            string databaseName = args[1];// "MyDB";
-            string outputFilePath = args.Length >= 3 ? args[2] : null;
-            var srv = new Server(new ServerConnection(serverName));
-            var db = srv.Databases[databaseName];
+            var result = Parser.Default.ParseArguments<Options>(args);
+            var exitCode = result.MapResult(Run, HandleArgErrors);
+            return exitCode;
+        }
 
-            var options = new ScriptOptions();
+        private static int Run(Options options)
+        {
+            var connection = CreateConnection(options);
+            var server = new Server(connection);
+            try
+            {
+                Console.WriteLine("Connected to server: {0}", server.Information.Version);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Unable to connect to server: {0} {1}", ex.Message, ex.InnerException.Message);
+                return 1;
+            }
+            Database database;
+            if (server.Databases.Contains(options.Database))
+            {
+                database = server.Databases[options.Database];
+            }
+            else
+            {
+                Console.WriteLine("Database not found");
+                return 1;
+            }
+            
+            var scriptOptions = new ScriptOptions();
             var generator = new ScriptGenerator();
             var output = Console.Out;
-            if (outputFilePath != null)
+            if (options.FilePath != null)
             {
-                output = new StreamWriter(outputFilePath, false);
+                output = new StreamWriter(options.FilePath, false);
             }
-            generator.WriteScript(db, options, output);
+            generator.WriteScript(database, scriptOptions, output);
+            return 0;
+        }
+
+        private static int HandleArgErrors(IEnumerable<Error> errors)
+        {
+            return 1;
+        }
+
+        private static ServerConnection CreateConnection(Options options)
+        {
+            var connection = new ServerConnection(options.Server);
+            if (!string.IsNullOrWhiteSpace(options.UserName))
+            {
+                // Use SQL Server authentication if username supplied
+                connection.LoginSecure = false;
+                connection.Login = options.UserName;
+                connection.Password = options.Password ?? "";
+            }
+            return connection;
         }
     }
 }
